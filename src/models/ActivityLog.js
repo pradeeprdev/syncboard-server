@@ -2,12 +2,20 @@ import mongoose from "mongoose";
 
 const activitySchema = new mongoose.Schema(
   {
-    projectId: { type: mongoose.Schema.Types.ObjectId, ref: "Project", index: true },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    action: { type: String },
-    entityType: { type: String },
-    entityId: { type: mongoose.Schema.Types.ObjectId },
-    metadata: { type: mongoose.Schema.Types.Mixed }
+    projectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project",
+      required: true,
+      index: true,
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    action: String,
+    entityType: String,
+    entityId: mongoose.Schema.Types.ObjectId,
+    metadata: mongoose.Schema.Types.Mixed,
   },
   { timestamps: true }
 );

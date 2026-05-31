@@ -1,27 +1,53 @@
-import Project from "../models/Project.js";
-import { successResponse, errorResponse } from "../utils/apiResponse.js";
-import Invitation from "../models/Invitation.js";
 import crypto from "crypto";
+import Project from "../models/Project.js";
+import Invitation from "../models/Invitation.js";
 import ActivityLog from "../models/ActivityLog.js";
-import Notification from "../models/Notification.js";
-import { getIO } from "../sockets/index.js";
+import User from "../models/User.js";
+import { successResponse, errorResponse } from "../utils/apiResponse.js";
+
+const normalizeUserId = (value) => String(value?._id || value);
+
+const createActivity = async ({ projectId, userId, action, metadata = {} }) => {
+  await ActivityLog.create({
+    projectId,
+    userId,
+    action,
+    entityType: "project",
+    entityId: projectId,
+    metadata,
+  });
+};
 
 export const createProject = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description = "" } = req.body;
 
-    if (!name) return errorResponse(res, 400, "Project name is required.");
+    if (!name?.trim()) {
+      return errorResponse(res, 400, "Project name is required");
+    }
 
     const project = await Project.create({
-      name,
-      description: description || "",
+      name: name.trim(),
+      description,
       createdBy: req.user._id,
-      members: [{ user: req.user._id, role: "admin" }]
+      members: [
+        {
+          user: req.user._id,
+          role: "admin",
+        },
+      ],
     });
 
-    return successResponse(res, 201, "Project created.", { project });
-  } catch (err) {
-    return errorResponse(res, 500, err.message);
+    await createActivity({
+      projectId: project._id,
+      userId: req.user._id,
+      action: "project_created",
+      metadata: { name: project.name },
+    });
+
+    return successResponse(res, 201, "Project created", { project });
+  } catch (error) {
+    return errorResponse(res, 500, error.message);
   }
 };
 
@@ -30,121 +56,153 @@ export const listProjects = async (req, res) => {
     const userId = req.user._id;
 
     const projects = await Project.find({
-      $or: [{ createdBy: userId }, { "members.user": userId }]
-    }).lean();
+      $or: [{ createdBy: userId }, { "members.user": userId }],
+    })
+      .populate("createdBy", "name email")
+      .populate("members.user", "name email")
+      .sort({ updatedAt: -1 })
+      .lean();
 
-    return successResponse(res, 200, "Projects fetched.", { projects });
-  } catch (err) {
-    return errorResponse(res, 500, err.message);
+    return successResponse(res, 200, "Projects fetched", { projects });
+  } catch (error) {
+    return errorResponse(res, 500, error.message);
   }
 };
 
 export const getProject = async (req, res) => {
   try {
-    const { projectId } = req.params;
+    const project = await Project.findById(req.params.projectId)
+      .populate("createdBy", "name email")
+      .populate("members.user", "name email")
+      .lean();
 
-    const project = await Project.findById(projectId).populate("members.user", "name email");
+    if (!project) {
+      return errorResponse(res, 404, "Project not found");
+    }
 
-    if (!project) return errorResponse(res, 404, "Project not found.");
+    const userId = String(req.user._id);
 
-    return successResponse(res, 200, "Project fetched.", { project });
-  } catch (err) {
-    return errorResponse(res, 500, err.message);
+    const isCreator =
+      normalizeUserId(project.createdBy) === userId;
+
+    const isMember = project.members.some(
+      (m) => normalizeUserId(m.user) === userId
+    );
+
+    if (!isCreator && !isMember) {
+      return errorResponse(res, 403, "Forbidden");
+    }
+
+    const role = isCreator
+      ? "admin"
+      : project.members.find((m) => normalizeUserId(m.user) === userId)?.role;
+
+    return successResponse(res, 200, "Project fetched", {
+      project,
+      role,
+    });
+  } catch (error) {
+    return errorResponse(res, 500, error.message);
   }
 };
 
 export const updateProject = async (req, res) => {
   try {
-    const { projectId } = req.params;
-    const updates = req.body;
+    const { name, description, status } = req.body;
+    const project = req.project;
 
-    const project = await Project.findById(projectId);
-    if (!project) return errorResponse(res, 404, "Project not found.");
-
-    // Only admins can update project metadata — check membership
-    const member = project.members.find(m => String(m.user) === String(req.user._id));
-    const isAdmin = String(project.createdBy) === String(req.user._id) || member?.role === 'admin';
-    if (!isAdmin) return errorResponse(res, 403, "Only project admins can update the project.");
-
-    if (updates.name) project.name = updates.name;
-    if (typeof updates.description !== "undefined") project.description = updates.description;
-    if (updates.status) project.status = updates.status;
+    if (name !== undefined) project.name = name.trim();
+    if (description !== undefined) project.description = description;
+    if (status !== undefined) project.status = status;
 
     await project.save();
 
-    return successResponse(res, 200, "Project updated.", { project });
-  } catch (err) {
-    return errorResponse(res, 500, err.message);
+    await createActivity({
+      projectId: project._id,
+      userId: req.user._id,
+      action: "project_updated",
+      metadata: { name, description, status },
+    });
+
+    return successResponse(res, 200, "Project updated", { project });
+  } catch (error) {
+    return errorResponse(res, 500, error.message);
   }
 };
 
 export const archiveProject = async (req, res) => {
   try {
-    const { projectId } = req.params;
-    const project = await Project.findById(projectId);
-
-    if (!project) return errorResponse(res, 404, "Project not found.");
-
-    const member = project.members.find(m => String(m.user) === String(req.user._id));
-    const isAdmin = String(project.createdBy) === String(req.user._id) || member?.role === 'admin';
-    if (!isAdmin) return errorResponse(res, 403, "Only project admins can archive the project.");
+    const project = req.project;
 
     project.status = "archived";
     await project.save();
 
-    return successResponse(res, 200, "Project archived.", { project });
-  } catch (err) {
-    return errorResponse(res, 500, err.message);
-  }
-};
+    await createActivity({
+      projectId: project._id,
+      userId: req.user._id,
+      action: "project_archived",
+    });
 
-export const getActivity = async (req, res) => {
-  try {
-    const { projectId } = req.params;
-    const activity = await ActivityLog.find({ projectId }).sort({ createdAt: -1 }).limit(200).lean();
-    return successResponse(res, 200, 'Activity fetched.', { activity });
-  } catch (err) {
-    return errorResponse(res, 500, err.message);
+    return successResponse(res, 200, "Project archived", { project });
+  } catch (error) {
+    return errorResponse(res, 500, error.message);
   }
 };
 
 export const inviteMember = async (req, res) => {
   try {
-    const { projectId } = req.params;
-    const { email, role = 'member' } = req.body;
+    const { email, role = "member" } = req.body;
+    const project = req.project;
 
-    const project = await Project.findById(projectId);
-    if (!project) return errorResponse(res, 404, 'Project not found.');
+    if (!email) {
+      return errorResponse(res, 400, "Email is required");
+    }
 
-    const member = project.members.find(m => String(m.user) === String(req.user._id));
-    const isAdmin = String(project.createdBy) === String(req.user._id) || member?.role === 'admin';
-    if (!isAdmin) return errorResponse(res, 403, 'Only project admins can invite members.');
+    if (!["admin", "member", "viewer"].includes(role)) {
+      return errorResponse(res, 400, "Invalid role");
+    }
 
-    const token = crypto.randomBytes(24).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-    const invitation = await Invitation.create({
-      projectId,
-      email,
-      role,
-      tokenHash,
-      expiresAt: Date.now() + 1000 * 60 * 60 * 24 // 24h
+    const existingUser = await User.findOne({
+      email: email.toLowerCase(),
     });
 
-    // In real app send email. Return token for testing.
-    await ActivityLog.create({ projectId, userId: req.user._id, action: 'member_invited', metadata: { email, role } });
+    if (existingUser) {
+      const alreadyMember = project.members.some(
+        (m) => String(m.user) === String(existingUser._id)
+      );
 
-    // create notifications for existing project members (except actor)
-    const recipients = project.members.map(m => String(m.user)).filter(id => id !== String(req.user._id));
-    const notifications = recipients.map(r => ({ projectId, recipient: r, actor: req.user._id, message: `${req.user.name} invited ${email} as ${role}` }));
-    if (notifications.length) await Notification.insertMany(notifications);
+      if (alreadyMember) {
+        return errorResponse(res, 409, "User is already a project member");
+      }
+    }
 
-    const io = getIO();
-    if (io) io.to(`project:${projectId}`).emit('notification:new', { message: `${req.user.name} invited ${email}` });
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
 
-    return successResponse(res, 201, 'Invitation created.', { token });
-  } catch (err) {
-    return errorResponse(res, 500, err.message);
+    await Invitation.create({
+      projectId: project._id,
+      email: email.toLowerCase(),
+      role,
+      tokenHash,
+      expiresAt: Date.now() + 1000 * 60 * 60 * 24,
+    });
+
+    await createActivity({
+      projectId: project._id,
+      userId: req.user._id,
+      action: "member_invited",
+      metadata: { email, role },
+    });
+
+    return successResponse(res, 201, "Invitation created", {
+      inviteToken: token,
+      inviteLink: `${process.env.CLIENT_URL}/accept-invite/${token}`,
+    });
+  } catch (error) {
+    return errorResponse(res, 500, error.message);
   }
 };
 
@@ -152,23 +210,78 @@ export const acceptInvitation = async (req, res) => {
   try {
     const { token } = req.params;
 
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const invitation = await Invitation.findOne({ tokenHash, expiresAt: { $gt: Date.now() } });
-    if (!invitation) return errorResponse(res, 400, 'Invalid or expired invitation.');
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const invitation = await Invitation.findOne({
+      tokenHash,
+      expiresAt: { $gt: Date.now() },
+      acceptedAt: { $exists: false },
+    });
+
+    if (!invitation) {
+      return errorResponse(res, 400, "Invalid or expired invitation");
+    }
+
+    if (invitation.email !== req.user.email) {
+      return errorResponse(
+        res,
+        403,
+        "This invitation is not for your email"
+      );
+    }
 
     const project = await Project.findById(invitation.projectId);
-    if (!project) return errorResponse(res, 404, 'Project not found.');
 
-    // add user as member
-    const already = project.members.some(m => m.email === invitation.email || String(m.user) === String(req.user._id));
-    if (!already) project.members.push({ user: req.user._id, role: invitation.role });
+    if (!project) {
+      return errorResponse(res, 404, "Project not found");
+    }
+
+    const alreadyMember = project.members.some(
+      (m) => String(m.user) === String(req.user._id)
+    );
+
+    if (!alreadyMember) {
+      project.members.push({
+        user: req.user._id,
+        role: invitation.role,
+      });
+    }
 
     invitation.acceptedAt = new Date();
-    await invitation.save();
-    await project.save();
 
-    return successResponse(res, 200, 'Invitation accepted.');
-  } catch (err) {
-    return errorResponse(res, 500, err.message);
+    await project.save();
+    await invitation.save();
+
+    await createActivity({
+      projectId: project._id,
+      userId: req.user._id,
+      action: "member_joined",
+      metadata: { email: req.user.email, role: invitation.role },
+    });
+
+    return successResponse(res, 200, "Invitation accepted", {
+      projectId: project._id,
+    });
+  } catch (error) {
+    return errorResponse(res, 500, error.message);
+  }
+};
+
+export const getProjectActivity = async (req, res) => {
+  try {
+    const activity = await ActivityLog.find({
+      projectId: req.params.projectId,
+    })
+      .populate("userId", "name email")
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+
+    return successResponse(res, 200, "Activity fetched", { activity });
+  } catch (error) {
+    return errorResponse(res, 500, error.message);
   }
 };

@@ -5,9 +5,9 @@ import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import authRoutes from "./routes/authRoutes.js";
 import projectRoutes from "./routes/projectRoutes.js";
-import taskRoutes from "./routes/taskRoutes.js";
 import attachmentRoutes from "./routes/attachmentRoutes.js";
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
+import taskRoutes from "./routes/taskRoutes.js";
 
 const app = express();
 
@@ -65,6 +65,8 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/projects/:projectId/tasks", taskRoutes);
+app.use("/api/projects", taskRoutes);
+
 app.use("/api/projects", attachmentRoutes);
 import invitationRoutes from "./routes/invitationRoutes.js";
 app.use("/api/invitations", invitationRoutes);

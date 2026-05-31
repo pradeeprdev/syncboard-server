@@ -1,6 +1,6 @@
 import express from "express";
 import { protect } from "../middlewares/authMiddleware.js";
-import { requireProjectMember } from "../middlewares/rbacMiddleware.js";
+import { attachProject } from "../middlewares/projectRBAC.js";
 import {
   listTasks,
   createTask,
@@ -8,22 +8,60 @@ import {
   updateTask,
   deleteTask,
   bulkUpdateStatus,
-  bulkAssign,
-  bulkDelete
+  bulkAssignTasks,
+  bulkDeleteTasks,
 } from "../controllers/taskController.js";
 
-const router = express.Router({ mergeParams: true });
+const router = express.Router();
 
 router.use(protect);
-router.use(requireProjectMember);
 
-router.get("/", listTasks);
-router.post("/", createTask);
-router.get("/:taskId", getTask);
-router.patch("/:taskId", updateTask);
-router.delete("/:taskId", deleteTask);
-router.patch("/bulk/status", bulkUpdateStatus);
-router.patch("/bulk/assign", bulkAssign);
-router.patch("/bulk/delete", bulkDelete);
+router.get(
+  "/:projectId/tasks",
+  attachProject,
+  listTasks
+);
+
+router.post(
+  "/:projectId/tasks",
+  attachProject,
+  createTask
+);
+
+router.get(
+  "/:projectId/tasks/:taskId",
+  attachProject,
+  getTask
+);
+
+router.patch(
+  "/:projectId/tasks/:taskId",
+  attachProject,
+  updateTask
+);
+
+router.delete(
+  "/:projectId/tasks/:taskId",
+  attachProject,
+  deleteTask
+);
+
+router.patch(
+  "/:projectId/tasks/bulk/status",
+  attachProject,
+  bulkUpdateStatus
+);
+
+router.patch(
+  "/:projectId/tasks/bulk/assign",
+  attachProject,
+  bulkAssignTasks
+);
+
+router.patch(
+  "/:projectId/tasks/bulk/delete",
+  attachProject,
+  bulkDeleteTasks
+);
 
 export default router;
