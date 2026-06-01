@@ -6,12 +6,13 @@ import { successResponse, errorResponse } from "../utils/apiResponse.js";
 import Project from "../models/Project.js";
 import Task from "../models/Task.js";
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
+const configureCloudinary = () => {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+  });
+};
 const storage = multer.memoryStorage();
 
 const allowedTypes = [
@@ -43,16 +44,14 @@ const getResourceType = (mimeType) => {
 
 const uploadBufferToCloudinary = (file, folder) => {
   return new Promise((resolve, reject) => {
+    configureCloudinary();
+
     if (
       !process.env.CLOUDINARY_CLOUD_NAME ||
       !process.env.CLOUDINARY_API_KEY ||
       !process.env.CLOUDINARY_API_SECRET
     ) {
-      return reject(
-        new Error(
-          "Cloudinary credentials missing. Check CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET in .env"
-        )
-      );
+      return reject(new Error("Cloudinary credentials missing in .env"));
     }
 
     const resourceType = getResourceType(file.mimetype);

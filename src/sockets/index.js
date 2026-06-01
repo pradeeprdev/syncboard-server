@@ -44,10 +44,6 @@ export const initializeSocket = (httpServer) => {
   });
 
   io.on("connection", (socket) => {
-    console.log(
-      `Socket Connected: ${socket.user.name}`
-    );
-
     socket.on("project:join", ({ projectId }) => {
       socket.join(`project:${projectId}`);
 
