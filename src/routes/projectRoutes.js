@@ -13,6 +13,7 @@ import {
   inviteMember,
   acceptInvitation,
   getProjectActivity,
+  getProjectInvitations,
 } from "../controllers/projectController.js";
 
 const router = express.Router();
@@ -49,6 +50,13 @@ router.get(
   "/:projectId/activity",
   attachProject,
   getProjectActivity
+);
+
+router.get(
+  "/:projectId/invitations",
+  attachProject,
+  requireProjectRole("admin"),
+  getProjectInvitations
 );
 
 export default router;

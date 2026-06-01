@@ -59,10 +59,11 @@ app.get("/", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/projects", projectRoutes);
+// task routes should be mounted under the project tasks path
 app.use("/api/projects/:projectId/tasks", taskRoutes);
 app.use("/api/projects", taskRoutes);
-
-app.use("/api/projects", attachmentRoutes);
+// attachments are task-scoped and need the projectId param (mergeParams=true)
+app.use("/api/projects/:projectId/tasks", attachmentRoutes);
 import invitationRoutes from "./routes/invitationRoutes.js";
 app.use("/api/invitations", invitationRoutes);
 import notificationRoutes from "./routes/notificationRoutes.js";

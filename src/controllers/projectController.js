@@ -4,6 +4,7 @@ import Invitation from "../models/Invitation.js";
 import ActivityLog from "../models/ActivityLog.js";
 import User from "../models/User.js";
 import { successResponse, errorResponse } from "../utils/apiResponse.js";
+import emailService from "../utils/emailService.js";
 
 const normalizeUserId = (value) => String(value?._id || value);
 
@@ -197,9 +198,29 @@ export const inviteMember = async (req, res) => {
       metadata: { email, role },
     });
 
+    // send invitation email (best-effort)
+    try {
+      // include inviteRole for email rendering
+      const inviteMeta = { name: project.name, inviteRole: role };
+      await emailService.sendInvitationEmail(email.toLowerCase(), token, inviteMeta, req.user);
+    } catch (e) {
+      console.error("Failed to send invitation email:", e.message || e);
+    }
+
+    const inviteLink = `${process.env.CLIENT_URL}/accept-invite/${token}`;
+    const loginLink = `${process.env.CLIENT_URL}/login`;
+    const targetExists = !!existingUser;
+
+    const message = targetExists
+      ? "Invitation created and sent to existing user."
+      : "Invitation created. The recipient is not registered — they should register or login and then accept the invite.";
+
     return successResponse(res, 201, "Invitation created", {
       inviteToken: token,
-      inviteLink: `${process.env.CLIENT_URL}/accept-invite/${token}`,
+      inviteLink,
+      loginLink,
+      targetExists,
+      message,
     });
   } catch (error) {
     return errorResponse(res, 500, error.message);
@@ -281,6 +302,23 @@ export const getProjectActivity = async (req, res) => {
       .lean();
 
     return successResponse(res, 200, "Activity fetched", { activity });
+  } catch (error) {
+    return errorResponse(res, 500, error.message);
+  }
+};
+
+export const getProjectInvitations = async (req, res) => {
+  try {
+    const invitations = await Invitation.find({
+      projectId: req.params.projectId,
+      acceptedAt: { $exists: false },
+      expiresAt: { $gt: Date.now() },
+    })
+      .select("email role createdAt expiresAt")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return successResponse(res, 200, "Invitations fetched", { invitations });
   } catch (error) {
     return errorResponse(res, 500, error.message);
   }

@@ -6,6 +6,7 @@ import {
 } from "../utils/generateTokens.js";
 import { successResponse, errorResponse } from "../utils/apiResponse.js";
 import crypto from "crypto";
+import emailService from "../utils/emailService.js";
 import User from "../models/User.js";
 
 export const register = async (req, res) => {
@@ -140,8 +141,18 @@ export const forgotPassword = async (req, res) => {
     user.resetTokenExpiry = Date.now() + 1000 * 60 * 60; // 1 hour
     await user.save();
 
-    // In production send email with token link. For now return token for testing.
-    return successResponse(res, 200, "Password reset token generated.", { resetToken: token });
+    // Send password reset email (best-effort). In non-production also return token.
+    try {
+      await emailService.sendPasswordResetEmail(user.email, token);
+    } catch (e) {
+      // log but don't expose internal errors
+      console.error("Failed to send reset email:", e.message || e);
+    }
+
+    const payload = {};
+    if (process.env.NODE_ENV !== "production") payload.resetToken = token;
+
+    return successResponse(res, 200, "Password reset token generated.", payload);
   } catch (err) {
     return errorResponse(res, 500, err.message);
   }

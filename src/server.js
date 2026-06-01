@@ -1,4 +1,7 @@
 import dotenv from "dotenv";
+// Load environment variables before importing any modules that rely on them
+dotenv.config();
+
 import http from "http";
 import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
@@ -6,8 +9,6 @@ import { initializeSocket } from "./sockets/index.js";
 import app from "./app.js";
 import { connectDB } from "./config/db.js";
 import Project from "./models/Project.js";
-
-dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 
