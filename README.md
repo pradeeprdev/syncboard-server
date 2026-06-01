@@ -1,73 +1,222 @@
-# syncboard-server
+# SyncBoard Backend
 
-This is the backend for the SyncBoard real-time project management platform.
+## Overview
 
-Quick start
+SyncBoard Backend is a scalable real-time project management API built using Node.js, Express.js, MongoDB, and Socket.io.
 
-1. Copy `.env.example` to `.env` and set these required values:
+The system supports:
 
-	- `PORT` (default 5050)
-	- `MONGO_URI` (MongoDB connection string)
-	- `JWT_ACCESS_SECRET`
-	- `JWT_REFRESH_SECRET`
-	- `CLOUDINARY_*` (if using Cloudinary uploads)
+* JWT Authentication
+* Refresh Tokens
+* Role Based Access Control (RBAC)
+* Multi-tenant Project Management
+* Real-time Collaboration
+* File Uploads with Cloudinary
+* Project Invitations
+* Activity Tracking
+* Notifications
+* Secure REST APIs
 
-2. Install and run in development:
+---
 
-```bash
-cd syncboard-server
+## Tech Stack
+
+* Node.js
+* Express.js
+* MongoDB Atlas
+* Mongoose
+* Socket.io
+* JWT
+* bcrypt
+* Cloudinary
+* Multer
+* Express Validator
+* Helmet
+* Express Rate Limit
+
+---
+
+## Features
+
+### Authentication
+
+* User Registration
+* User Login
+* JWT Access Token
+* Refresh Token Flow
+* Password Hashing using bcrypt
+* Protected Routes
+* Role-Based Authorization
+
+### Project Management
+
+* Create Projects
+* Update Projects
+* Archive Projects
+* Invite Members
+* Assign Roles
+* Activity Logs
+
+### Task Management
+
+* Create Task
+* Update Task
+* Delete Task
+* Bulk Actions
+* Search Tasks
+* Filter Tasks
+* Sort Tasks
+
+### Real-Time Features
+
+* Socket.io Integration
+* Live Task Updates
+* Real-time Notifications
+* Project Rooms
+* Connection Recovery
+
+### File Management
+
+* Cloudinary Upload
+* Secure Access
+* File Validation
+* Progress Tracking
+* Download Support
+
+---
+
+## Project Structure
+
+src/
+
+├── controllers/
+
+├── services/
+
+├── models/
+
+├── routes/
+
+├── middlewares/
+
+├── sockets/
+
+├── utils/
+
+├── config/
+
+└── server.js
+
+---
+
+## Environment Variables
+
+Create a .env file:
+
+PORT=5050
+MONGO_URI=mongodb+srv://pradeep:pradeep@cluster0.lrrs3vq.mongodb.net/?appName=Cluster0
+JWT_ACCESS_SECRET=syncboard_access_2026_7f4k9xP2mQ8nL5rT1vY6zA3cD
+JWT_REFRESH_SECRET=syncboard_refresh_2026_K8mN2pQ7xR4tV9yL6cA1dF5zB
+CLIENT_URL=http://localhost:5173
+
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=pradeepthakur8401@gmail.com
+EMAIL_PASS=jpvi ybzh zryr dsqc
+EMAIL_FROM="SyncBoard <pradeepthakur8401@gmail.com>"
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=dfzgu9mpg
+CLOUDINARY_API_KEY=755499582431273
+CLOUDINARY_API_SECRET=APx0VT5qOfHiN9ujiHRKkNzToI0
+
+---
+
+## Installation
+
 npm install
-# make sure nothing else is listening on PORT (5050)
+
 npm run dev
-```
 
-If port 5050 is already in use (nodemon will crash with EADDRINUSE), free it with:
+---
 
-```bash
-lsof -i tcp:5050
-# then
-kill -9 <PID>
-```
+## Production Build
 
-Testing
+npm start
 
-Basic test scaffolding is present in `src/tests`. Tests are skipped by default to avoid requiring a running test DB.
-To enable tests locally, set `MONGO_URI` to a test database or configure an in-memory MongoDB, then remove the `.skip` markers in the test files and run:
+---
 
-```bash
-npm test
-```
+## API Documentation
 
-Endpoints (high-level)
+### Auth
 
-- `POST /api/auth/register` - register
-- `POST /api/auth/login` - login
-- `POST /api/auth/refresh` - refresh access token
-- `POST /api/auth/logout` - logout
-- `POST /api/auth/forgot-password` - request reset
-- `POST /api/auth/reset-password` - reset password
+POST /api/auth/register
 
-- `GET /api/projects` - list
-- `POST /api/projects` - create
-- `GET /api/projects/:projectId` - get
-- `PATCH /api/projects/:projectId` - update (admin only)
-- `DELETE /api/projects/:projectId` - archive (admin only)
-- `POST /api/projects/:projectId/invitations` - invite
+POST /api/auth/login
 
-- `GET /api/projects/:projectId/tasks` - list tasks
-- `POST /api/projects/:projectId/tasks` - create task
-- `PATCH /api/projects/:projectId/tasks/:taskId` - update task
-- `DELETE /api/projects/:projectId/tasks/:taskId` - delete task (admin only)
-- `PATCH /api/projects/:projectId/tasks/bulk/status` - bulk status update
-- `PATCH /api/projects/:projectId/tasks/bulk/assign` - bulk assign
-- `PATCH /api/projects/:projectId/tasks/bulk/delete` - bulk delete (admin only)
+POST /api/auth/refresh
 
-- `GET /api/projects/:projectId/activity` - activity log
-- `GET /api/projects/:projectId/notifications` - notifications (project members only)
-- `POST /api/projects/:projectId/notifications/:notificationId/read` - mark read
+POST /api/auth/logout
 
-Notes & next steps
+### Projects
 
-- Tests: a few integration test placeholders were added under `src/tests`. Enable and extend them to cover critical flows.
-- RBAC: project-level admin/member/viewer checks are enforced on sensitive endpoints; consider auditing all controllers for missing checks.
-- Deployment: use MongoDB Atlas and Railway/Render for the server; Vercel/Netlify for the frontend.
+GET /api/projects
+
+POST /api/projects
+
+GET /api/projects/:projectId
+
+PATCH /api/projects/:projectId
+
+DELETE /api/projects/:projectId
+
+### Tasks
+
+GET /api/projects/:projectId/tasks
+
+POST /api/projects/:projectId/tasks
+
+PATCH /api/projects/:projectId/tasks/:taskId
+
+DELETE /api/projects/:projectId/tasks/:taskId
+
+### Attachments
+
+POST /api/projects/:projectId/tasks/:taskId/attachments
+
+GET /api/projects/:projectId/tasks/:taskId/attachments
+
+DELETE /api/projects/:projectId/attachments/:attachmentId
+
+---
+
+## Security
+
+* Helmet Enabled
+* Rate Limiting
+* Password Hashing
+* JWT Authentication
+* Input Validation
+* File Validation
+* RBAC Enforcement
+
+---
+
+## Deployment
+
+Backend deployed on Render.
+
+Database hosted on MongoDB Atlas.
+
+File storage handled by Cloudinary.
+
+---
+
+## Architecture Decisions
+
+* Service Layer Architecture
+* Socket.io Rooms for Project Collaboration
+* JWT + Refresh Tokens for Security
+* Cloudinary for Scalable File Storage
+* MongoDB Indexing for Performance
+* Role-Based Permissions enforced at API level
